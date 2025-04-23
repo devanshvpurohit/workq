@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Shortener</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            text-align: center;
+        }
+        input, button {
+            padding: 10px;
+            margin: 5px 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            word-break: break-all;
+        }
+        .container {
+            margin-bottom: 20px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="app" class="container">
+        <h1>URL Shortener</h1>
+        <input type="url" id="longUrl" placeholder="Enter your long URL" required>
+        <input type="text" id="customCode" placeholder="Custom short code (optional)">
+        <button onclick="createShortUrl()">Shorten URL</button>
+        <div id="result"></div>
+    </div>
+
+    <div id="redirectInfo" class="container hidden">
+        <p>Redirecting you to the original URL...</p>
+        <a href="#" onclick="showMainApp()">Back to URL Shortener</a>
+    </div>
+
+    <script>
+        // Initialize database from localStorage
+        const urlDatabase = JSON.parse(localStorage.getItem('urlShortenerData')) || {};
+        
+        // DOM elements
+        const appElement = document.getElementById('app');
+        const redirectElement = document.getElementById('redirectInfo');
+        const resultElement = document.getElementById('result');
+        
+        // Generate random short code
+        function generateShortCode() {
+            return Math.random().toString(36).substring(2, 8);
+        }
+        
+        // Create short URL
+        function createShortUrl() {
+            const longUrl = document.getElementById('longUrl').value.trim();
+            let customCode = document.getElementById('customCode').value.trim();
+            
+            if (!longUrl) {
+                alert('Please enter a URL');
+                return;
+            }
+            
+            // Ensure URL has protocol
+            let formattedUrl = longUrl;
+            if (!/^https?:\/\//i.test(formattedUrl)) {
+                formattedUrl = 'http://' + formattedUrl;
+            }
+            
+            // Generate or use custom code
+            let shortCode = customCode || generateShortCode();
+            while (urlDatabase[shortCode] && !customCode) {
+                shortCode = generateShortCode();
+            }
+            
+            if (urlDatabase[shortCode] && customCode) {
+                alert('This custom code is already in use');
+                return;
+            }
+            
+            // Save to database
+            urlDatabase[shortCode] = formattedUrl;
+            localStorage.setItem('urlShortenerData', JSON.stringify(urlDatabase));
+            
+            // Create shareable URL (uses current page URL with hash)
+            const shortUrl = window.location.href.split('#')[0] + '#' + shortCode;
+            
+            // Display result
+            resultElement.innerHTML = `
+                <p>Your short URL:</p>
+                <a href="${shortUrl}" target="_blank">${shortUrl}</a>
+                <p>Redirects to: ${formattedUrl}</p>
+                <button onclick="navigator.clipboard.writeText('${shortUrl}')">Copy URL</button>
+            `;
+        }
+        
+        // Redirect to original URL
+        function redirectToUrl(shortCode) {
+            const longUrl = urlDatabase[shortCode];
+            if (longUrl) {
+                appElement.classList.add('hidden');
+                redirectElement.classList.remove('hidden');
+                setTimeout(() => {
+                    window.location.href = longUrl;
+                }, 1500);
+            } else {
+                redirectElement.innerHTML = `
+                    <h2>URL Not Found</h2>
+                    <p>The short code "${shortCode}" doesn't exist.</p>
+                    <a href="#" onclick="showMainApp()">Back to URL Shortener</a>
+                `;
+                appElement.classList.add('hidden');
+                redirectElement.classList.remove('hidden');
+            }
+        }
+        
+        // Show main app interface
+        function showMainApp() {
+            window.location.hash = '';
+            appElement.classList.remove('hidden');
+            redirectElement.classList.add('hidden');
+        }
+        
+        // Check for hash on load
+        function checkHash() {
+            const shortCode = window.location.hash.substring(1);
+            if (shortCode) {
+                redirectToUrl(shortCode);
+            }
+        }
+        
+        // Initialize
+        window.addEventListener('load', checkHash);
+        window.addEventListener('hashchange', checkHash);
+    </script>
+</body>
+</html>
